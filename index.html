@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendario de Clases - SportON</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb; /* gray-50 */
+            color: #1f2937; /* gray-800 */
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: auto repeat(6, 1fr); /* 6 days */
+            gap: 1px;
+            background-color: #d1d5db; /* gray-300 */
+        }
+        .calendar-cell {
+            background-color: #ffffff; /* white */
+            min-height: 120px;
+            position: relative;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            overflow-y: auto;
+        }
+        .time-header {
+            background-color: #14b8a6; /* teal-500 */
+            color: white;
+        }
+        .day-header {
+            background-color: #14b8a6; /* teal-500 */
+            color: white;
+        }
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .calendar-cell::-webkit-scrollbar { width: 4px; }
+        .calendar-cell::-webkit-scrollbar-track { background: transparent; }
+        .calendar-cell::-webkit-scrollbar-thumb { background-color: #14b8a6; border-radius: 20px; } /* teal-500 */
+        .ai-content { white-space: pre-wrap; }
+        .ai-content h3 { font-size: 1.25rem; font-weight: bold; margin-top: 1rem; margin-bottom: 0.5rem; color: #0d9488; } /* teal-600 */
+        .ai-content ul { list-style-position: inside; padding-left: 1rem; }
+        .ai-content li { margin-bottom: 0.25rem; }
+        .ai-content strong { color: #1f2937; }
+        .day-checkbox:checked + label {
+            background-color: #14b8a6; /* teal-500 */
+            border-color: #0d9488; /* teal-600 */
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="container mx-auto">
+        <!-- Encabezado -->
+        <header class="text-center mb-4 relative">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-800">Sport<span class="text-teal-500">ON</span></h1>
+            <p class="text-gray-500 mt-2">Reserva tu plaza para la próxima clase.</p>
+            <button id="get-wod-btn" class="absolute top-0 right-0 bg-purple-100 text-purple-700 hover:bg-purple-200 text-xs font-bold py-2 px-3 rounded-lg shadow-sm transition">
+                Entrenamiento del Día ✨
+            </button>
+        </header>
+
+        <!-- Botón Principal -->
+        <div class="text-center my-8">
+            <button id="open-modal-btn" class="bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-transform transform hover:scale-105 mb-4">
+                Apuntarse a una Clase
+            </button>
+        </div>
+
+        <!-- Calendario Semanal -->
+        <div id="calendar-container" class="bg-white p-1 rounded-lg border border-gray-200 shadow-md">
+            <div id="calendar-grid" class="calendar-grid">
+                <!-- El contenido se genera con JS -->
+            </div>
+        </div>
+        
+        <footer class="text-center mt-8 py-4">
+            <p class="text-gray-400">&copy; 2025 SportON</p>
+        </footer>
+    </div>
+
+    <!-- Modales -->
+    <div id="booking-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-gray-200">
+            <div class="p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Reservar Clases</h2>
+                <form id="booking-form">
+                    <div class="mb-4">
+                        <label for="user-name" class="block text-gray-600 text-sm font-bold mb-2">Tu Nombre:</label>
+                        <input type="text" id="user-name" name="user-name" class="w-full bg-gray-100 text-gray-800 rounded-lg py-2 px-3 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-600 text-sm font-bold mb-2">Días de la Semana:</label>
+                        <div id="days-checkboxes" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            <!-- Checkboxes de días generados por JS -->
+                        </div>
+                    </div>
+                    <div class="mb-6">
+                        <label for="class-time" class="block text-gray-600 text-sm font-bold mb-2">Hora:</label>
+                        <select id="class-time" name="class-time" class="w-full bg-gray-100 text-gray-800 rounded-lg py-2 px-3 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500"></select>
+                    </div>
+                    <div class="flex items-center justify-end gap-4">
+                        <button type="button" id="close-modal-btn" class="text-gray-500 hover:text-gray-800 transition">Cancelar</button>
+                        <button type="submit" class="bg-teal-500 hover:bg-teal-600 text-white font-bold py-2 px-6 rounded-lg transition">Confirmar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div id="confirm-delete-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm border border-gray-200 p-6 text-center">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">¿Estás seguro?</h3>
+            <p class="text-gray-500 mb-6">Esta acción cancelará tu reserva. No se puede deshacer.</p>
+            <div class="flex justify-center gap-4">
+                <button id="cancel-delete-btn" class="text-gray-600 bg-gray-200 hover:bg-gray-300 font-bold py-2 px-6 rounded-lg transition">No, mantener</button>
+                <button id="confirm-delete-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition">Sí, borrar</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="ai-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-gray-200 max-h-[90vh] flex flex-col">
+            <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                <h2 id="ai-modal-title" class="text-2xl font-bold text-gray-800"></h2>
+                <button id="close-ai-modal-btn" class="text-gray-500 hover:text-gray-800 text-3xl leading-none">&times;</button>
+            </div>
+            <div id="ai-modal-content" class="p-6 overflow-y-auto">
+                <div id="ai-level-selection" class="text-center">
+                    <p class="text-gray-600 mb-4">Selecciona tu nivel de condición física:</p>
+                    <div class="flex flex-col sm:flex-row justify-center gap-4">
+                        <button data-level="principiante" class="wod-level-btn bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition">Principiante</button>
+                        <button data-level="intermedio" class="wod-level-btn bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-6 rounded-lg transition">Intermedio</button>
+                        <button data-level="avanzado" class="wod-level-btn bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg transition">Avanzado</button>
+                    </div>
+                </div>
+                <div id="ai-loading-spinner" class="text-center hidden">
+                     <div role="status" class="flex justify-center items-center"><svg aria-hidden="true" class="w-8 h-8 text-gray-200 animate-spin fill-teal-500" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/><path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0492C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/></svg></div>
+                </div>
+                <div id="ai-content-display" class="ai-content text-gray-700"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="quote-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 p-8 text-center">
+            <h3 class="text-xl font-bold text-teal-500 mb-4">¡Reserva Confirmada!</h3>
+            <p id="quote-text" class="text-gray-600 italic text-lg mb-6"></p>
+            <button id="close-quote-modal-btn" class="bg-teal-500 hover:bg-teal-600 text-white font-bold py-2 px-6 rounded-lg transition">¡Entendido!</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'sporton-calendar-app-light';
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const bookingsCollection = collection(db, 'artifacts', appId, 'public', 'data', 'bookings');
+
+        const DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        const ALL_TIMES = ['8:00 - 9:15', '9:15 - 10:30', '10:30 - 11:45', '11:45 - 13:00', '13:00 - 14:15', '17:00 - 18:15', '18:15 - 19:30', '19:30 - 20:45', '20:45 - 22:00'];
+        const SATURDAY_TIMES = ALL_TIMES.slice(0, 5);
+
+        const dom = {
+            calendarGrid: document.getElementById('calendar-grid'),
+            bookingModal: document.getElementById('booking-modal'),
+            confirmDeleteModal: document.getElementById('confirm-delete-modal'),
+            quoteModal: document.getElementById('quote-modal'),
+            aiModal: document.getElementById('ai-modal'),
+            bookingForm: document.getElementById('booking-form'),
+            openModalBtn: document.getElementById('open-modal-btn'),
+            closeModalBtn: document.getElementById('close-modal-btn'),
+            getWodBtn: document.getElementById('get-wod-btn'),
+            closeAiModalBtn: document.getElementById('close-ai-modal-btn'),
+            closeQuoteModalBtn: document.getElementById('close-quote-modal-btn'),
+            daysCheckboxes: document.getElementById('days-checkboxes'),
+            timeSelect: document.getElementById('class-time'),
+            aiLevelSelection: document.getElementById('ai-level-selection'),
+            aiContentDisplay: document.getElementById('ai-content-display'),
+            aiModalTitle: document.getElementById('ai-modal-title'),
+            aiLoadingSpinner: document.getElementById('ai-loading-spinner'),
+            quoteText: document.getElementById('quote-text'),
+        };
+        
+        let bookingToDeleteId = null;
+        let pendingBooking = null;
+
+        const showModal = (modal) => modal.classList.remove('hidden');
+        const hideModal = (modal) => modal.classList.add('hidden');
+
+        dom.openModalBtn.addEventListener('click', () => showModal(dom.bookingModal));
+        dom.closeModalBtn.addEventListener('click', () => hideModal(dom.bookingModal));
+        dom.closeAiModalBtn.addEventListener('click', () => hideModal(dom.aiModal));
+        
+        dom.closeQuoteModalBtn.addEventListener('click', async () => {
+            hideModal(dom.quoteModal);
+            if (pendingBooking) {
+                const { name, selectedDays, time } = pendingBooking;
+                const bookingPromises = selectedDays.map(day => {
+                    return addDoc(bookingsCollection, { name, day, time, userId: auth.currentUser.uid });
+                });
+                try {
+                    await Promise.all(bookingPromises);
+                } catch (error) {
+                    console.error("Error al añadir reservas:", error);
+                    alert("No se pudieron completar las reservas. Inténtalo de nuevo.");
+                } finally {
+                    pendingBooking = null;
+                }
+            }
+        });
+        
+        document.getElementById('cancel-delete-btn').addEventListener('click', () => { hideModal(dom.confirmDeleteModal); bookingToDeleteId = null; });
+        document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
+            if (bookingToDeleteId) {
+                await deleteBooking(bookingToDeleteId);
+                bookingToDeleteId = null;
+                hideModal(dom.confirmDeleteModal);
+            }
+        });
+
+        function initializeAppUI() {
+            const today = new Date('2025-08-10T12:00:00');
+            const dayOfWeek = today.getDay();
+            const monday = new Date(today);
+            monday.setDate(today.getDate() - dayOfWeek + 1);
+
+            dom.calendarGrid.innerHTML = ''; 
+            const cornerCell = document.createElement('div');
+            cornerCell.className = 'day-header'; // Apply same style as headers
+            dom.calendarGrid.appendChild(cornerCell);
+            
+            const weekDates = Array.from({length: 6}, (_, i) => {
+                const currentDate = new Date(monday);
+                currentDate.setDate(monday.getDate() + i);
+                return currentDate.getDate();
+            });
+
+            DAYS.forEach((day, index) => {
+                const dayHeader = document.createElement('div');
+                dayHeader.className = 'day-header p-2 text-center font-bold sticky top-0';
+                dayHeader.innerHTML = `${day} <span class="font-normal text-teal-100">${weekDates[index]}</span>`;
+                dom.calendarGrid.appendChild(dayHeader);
+            });
+
+            ALL_TIMES.forEach(time => {
+                const timeHeader = document.createElement('div');
+                timeHeader.className = 'time-header p-2 text-center font-semibold flex items-center justify-center';
+                timeHeader.textContent = time;
+                dom.calendarGrid.appendChild(timeHeader);
+                DAYS.forEach(day => {
+                    const cell = document.createElement('div');
+                    cell.className = 'calendar-cell border-t border-l border-gray-200';
+                    cell.dataset.day = day;
+                    cell.dataset.time = time;
+                    dom.calendarGrid.appendChild(cell);
+                });
+            });
+
+            dom.daysCheckboxes.innerHTML = DAYS.map(day => `
+                <div class="relative flex items-center">
+                    <input type="checkbox" id="day-${day}" value="${day}" class="day-checkbox absolute h-full w-full opacity-0 cursor-pointer">
+                    <label for="day-${day}" class="flex items-center justify-center w-full p-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md cursor-pointer transition-colors duration-200">${day}</label>
+                </div>
+            `).join('');
+            
+            updateAvailableTimes();
+        }
+        
+        function updateAvailableTimes() {
+            const selectedDays = Array.from(dom.daysCheckboxes.querySelectorAll('input:checked')).map(cb => cb.value);
+            const isSaturdayOnly = selectedDays.length > 0 && selectedDays.every(day => day === 'Sábado');
+            const availableTimes = isSaturdayOnly ? SATURDAY_TIMES : ALL_TIMES;
+            
+            const currentVal = dom.timeSelect.value;
+            dom.timeSelect.innerHTML = availableTimes.map(time => `<option value="${time}">${time}</option>`).join('');
+            if (availableTimes.includes(currentVal)) {
+                dom.timeSelect.value = currentVal;
+            }
+        }
+        
+        dom.daysCheckboxes.addEventListener('change', updateAvailableTimes);
+
+        async function callGeminiAPI(prompt) {
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const result = await response.json();
+            if (result.candidates && result.candidates.length > 0) return result.candidates[0].content.parts[0].text;
+            throw new Error("Invalid response from Gemini API.");
+        }
+        
+        dom.getWodBtn.addEventListener('click', () => {
+            dom.aiModalTitle.textContent = "Entrenamiento del Día ✨";
+            dom.aiContentDisplay.innerHTML = '';
+            dom.aiLoadingSpinner.classList.add('hidden');
+            dom.aiLevelSelection.classList.remove('hidden');
+            showModal(dom.aiModal);
+        });
+
+        dom.aiLevelSelection.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('wod-level-btn')) {
+                const level = e.target.dataset.level;
+                dom.aiLevelSelection.classList.add('hidden');
+                dom.aiLoadingSpinner.classList.remove('hidden');
+                
+                try {
+                    const prompt = `Crea un 'Entrenamiento del Día' para un gimnasio convencional, en español, para un nivel ${level}. La duración total (incluyendo calentamiento y enfriamiento) no debe exceder 1 hora y 15 minutos. El entrenamiento debe usar equipamiento estándar de gimnasio (mancuernas, barras, máquinas, poleas, cardio) y NO debe incluir movimientos complejos de halterofilia, CrossFit, racks de potencia o assault bikes. Estructura la respuesta con **Calentamiento**, **Parte Principal** y **Enfriamiento**.`;
+                    const response = await callGeminiAPI(prompt);
+                    const formattedHtml = response
+                        .replace(/\*\*(.*?)\*\*/g, '<h3>$1</h3>')
+                        .replace(/^- (.*$)/gm, '<li>$1</li>');
+                    dom.aiContentDisplay.innerHTML = formattedHtml;
+                } catch (error) {
+                    dom.aiContentDisplay.innerHTML = `<p class="text-red-500">No se pudo generar el entrenamiento. Inténtalo de nuevo.</p>`;
+                } finally {
+                    dom.aiLoadingSpinner.classList.add('hidden');
+                }
+            }
+        });
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                attachFirestoreListeners();
+            } else {
+                try {
+                    await (typeof __initial_auth_token !== 'undefined' && __initial_auth_token ? signInWithCustomToken(auth, __initial_auth_token) : signInAnonymously(auth));
+                } catch (error) { console.error("Auth Error:", error); }
+            }
+        });
+        
+        function attachFirestoreListeners() {
+            onSnapshot(bookingsCollection, (snapshot) => {
+                const bookingsBySlot = {};
+                snapshot.docs.forEach(doc => {
+                    const booking = { id: doc.id, ...doc.data() };
+                    const slotKey = `${booking.day}-${booking.time}`;
+                    if (!bookingsBySlot[slotKey]) bookingsBySlot[slotKey] = [];
+                    bookingsBySlot[slotKey].push(booking);
+                });
+
+                document.querySelectorAll('.calendar-cell').forEach(cell => {
+                    cell.innerHTML = '';
+                    const day = cell.dataset.day;
+                    const time = cell.dataset.time;
+                    const slotKey = `${day}-${time}`;
+                    const bookings = bookingsBySlot[slotKey] || [];
+                    bookings.forEach(booking => {
+                        const bookingEl = document.createElement('div');
+                        bookingEl.className = 'bg-teal-100 border border-teal-200 text-teal-800 rounded-md p-1.5 text-sm flex justify-between items-center';
+                        const nameEl = document.createElement('span');
+                        nameEl.className = 'font-semibold truncate';
+                        nameEl.textContent = booking.name;
+                        bookingEl.appendChild(nameEl);
+                        if (booking.userId === auth.currentUser?.uid) {
+                            const deleteBtn = document.createElement('button');
+                            deleteBtn.className = 'text-red-500 hover:text-red-700 flex-shrink-0 ml-2';
+                            deleteBtn.innerHTML = '&#x2715;';
+                            deleteBtn.dataset.id = booking.id;
+                            deleteBtn.addEventListener('click', (e) => { e.stopPropagation(); bookingToDeleteId = e.target.dataset.id; showModal(dom.confirmDeleteModal); });
+                            bookingEl.appendChild(deleteBtn);
+                        }
+                        cell.appendChild(bookingEl);
+                    });
+                });
+            });
+
+            dom.bookingForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const name = dom.bookingForm['user-name'].value.trim();
+                const time = dom.timeSelect.value;
+                const selectedDays = Array.from(dom.daysCheckboxes.querySelectorAll('input:checked')).map(cb => cb.value);
+
+                if (!name || !auth.currentUser || selectedDays.length === 0) {
+                    alert('Por favor, introduce tu nombre y selecciona al menos un día.');
+                    return;
+                }
+                
+                pendingBooking = { name, selectedDays, time };
+
+                hideModal(dom.bookingModal);
+                
+                try {
+                    const prompt = "Dame una única frase motivacional corta y poderosa para el gimnasio, en español. La frase debe ser una sola oración, sin comillas, sin asteriscos y sin ningún tipo de formato especial.";
+                    const quote = await callGeminiAPI(prompt);
+                    dom.quoteText.textContent = quote;
+                    showModal(dom.quoteModal);
+                } catch(error) {
+                    console.error("Error getting quote, booking directly", error);
+                    // If quote fails, book directly
+                    dom.closeQuoteModalBtn.click(); 
+                } finally {
+                    dom.bookingForm.reset();
+                    dom.daysCheckboxes.querySelectorAll('input:checked').forEach(cb => cb.checked = false);
+                }
+            });
+        }
+        
+        async function deleteBooking(id) {
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bookings', id));
+            } catch (error) {
+                console.error("Error al borrar la reserva:", error);
+            }
+        }
+
+        initializeAppUI();
+    </script>
+</body>
+</html>
